@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulador de encapsulamiento OSI</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #38bdf8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --border: rgba(255, 255, 255, 0.12);
+      --shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 35%),
+        radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.16), transparent 35%),
+        var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      padding: 32px 22px 18px;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0 0 10px;
+      font-size: clamp(1.8rem, 3vw, 3rem);
+      letter-spacing: -0.04em;
+    }
+
+    header p {
+      max-width: 850px;
+      margin: 0 auto;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .app {
+      width: min(1280px, calc(100% - 28px));
+      margin: 0 auto 36px;
+      display: grid;
+      grid-template-columns: 330px 1fr 340px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .card {
+      background: rgba(17, 24, 39, 0.86);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(12px);
+    }
+
+    .card h2 {
+      margin: 0;
+      padding: 18px 20px;
+      font-size: 1.05rem;
+      background: rgba(255, 255, 255, 0.04);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .controls {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    textarea,
+    input,
+    select {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: #020617;
+      color: var(--text);
+      border-radius: 14px;
+      padding: 11px 12px;
+      outline: none;
+      font: inherit;
+    }
+
+    textarea {
+      min-height: 95px;
+      resize: vertical;
+    }
+
+    textarea:focus,
+    input:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-weight: 800;
+      cursor: pointer;
+      color: #04111d;
+      background: linear-gradient(135deg, #38bdf8, #22c55e);
+      transition: transform 0.16s ease, filter 0.16s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.08);
+    }
+
+    button.secondary {
+      color: var(--text);
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .legend {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+
+    .legend strong {
+      color: var(--text);
+    }
+
+    .stage {
+      position: relative;
+      min-height: 760px;
+      padding: 18px;
+    }
+
+    .osi-stack {
+      position: relative;
+      display: grid;
+      gap: 10px;
+    }
+
+    .layer {
+      position: relative;
+      min-height: 86px;
+      display: grid;
+      grid-template-columns: 74px 1fr 118px;
+      gap: 14px;
+      align-items: center;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.025));
+      transition: border-color 0.25s ease, transform 0.25s ease, background 0.25s ease;
+    }
+
+    .layer.active {
+      border-color: var(--accent);
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(34, 197, 94, 0.08));
+      transform: scale(1.015);
+    }
+
+    .layer-number {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      background: rgba(56, 189, 248, 0.16);
+      color: #7dd3fc;
+      border: 1px solid rgba(125, 211, 252, 0.24);
+    }
+
+    .layer h3 {
+      margin: 0 0 4px;
+      font-size: 1rem;
+    }
+
+    .layer p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.4;
+    }
+
+    .protocol {
+      justify-self: end;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #bfdbfe;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+
+    .packet-flyer {
+      position: absolute;
+      left: 50%;
+      top: 28px;
+      transform: translate(-50%, 0);
+      z-index: 5;
+      width: min(92%, 720px);
+      pointer-events: none;
+      transition: top 0.7s cubic-bezier(.2,.8,.2,1), opacity 0.3s ease;
+    }
+
+    .packet-label {
+      margin-bottom: 8px;
+      color: var(--accent);
+      font-size: 0.86rem;
+      font-weight: 900;
+      text-align: center;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+    }
+
+    .packet {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 10px;
+      border-radius: 18px;
+      background: rgba(2, 6, 23, 0.74);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35), 0 0 28px rgba(56, 189, 248, 0.15);
+    }
+
+    .segment {
+      min-width: 72px;
+      padding: 9px 10px;
+      border-radius: 12px;
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 900;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .payload { background: rgba(34, 197, 94, 0.9); color: #031309; }
+    .h7, .h6, .h5 { background: rgba(168, 85, 247, 0.92); color: #fff; }
+    .h4 { background: rgba(249, 115, 22, 0.95); color: #120802; }
+    .h3 { background: rgba(59, 130, 246, 0.95); color: #06111f; }
+    .h2 { background: rgba(245, 158, 11, 0.95); color: #120a00; }
+    .trailer { background: rgba(239, 68, 68, 0.95); color: #fff; }
+    .bits { background: rgba(148, 163, 184, 0.95); color: #020617; }
+
+    .side {
+      display: grid;
+      gap: 18px;
+    }
+
+    .info {
+      padding: 18px;
+    }
+
+    .info h3 {
+      margin: 0 0 8px;
+      font-size: 1.25rem;
+    }
+
+    .info p {
+      margin: 0 0 12px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .detail-grid {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .detail {
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.045);
+      border: 1px solid var(--border);
+    }
+
+    .detail small {
+      display: block;
+      color: var(--muted);
+      margin-bottom: 5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .detail span {
+      color: var(--text);
+      line-height: 1.45;
+    }
+
+    .log {
+      max-height: 300px;
+      overflow: auto;
+      padding: 12px 18px 18px;
+      display: grid;
+      gap: 9px;
+    }
+
+    .log-item {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.045);
+      border-left: 4px solid var(--accent);
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+
+    .log-item strong {
+      color: var(--text);
+    }
+
+    .progress {
+      height: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #38bdf8, #22c55e);
+      transition: width 0.25s ease;
+    }
+
+    .mini-title {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-top: 4px;
+    }
+
+    @media (max-width: 1080px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .stage {
+        min-height: 760px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .layer {
+        grid-template-columns: 52px 1fr;
+      }
+
+      .protocol {
+        grid-column: 2;
+        justify-self: start;
+      }
+
+      .packet-flyer {
+        width: 98%;
+      }
+
+      .segment {
+        min-width: 58px;
+        font-size: 0.68rem;
+        padding: 8px;
+      }
+    }
+  
+    .segment-size {
+      display: block;
+      margin-top: 3px;
+      font-size: 0.66rem;
+      font-weight: 800;
+      opacity: 0.82;
+    }
+
+    .packet-stats {
+      margin-top: 8px;
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .stat-pill {
+      border: 1px solid var(--border);
+      background: rgba(2, 6, 23, 0.72);
+      padding: 6px 9px;
+      border-radius: 999px;
+    }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Simulador del modelo OSI</h1>
+    <p>
+      Observa cómo un mensaje se transforma en datos, segmentos, paquetes, tramas y bits al bajar por las capas OSI.
+      Después, simula el proceso inverso de desencapsulado en el equipo receptor.
+    </p>
+  </header>
+
+  <main class="app">
+    <section class="card">
+      <h2>Configuración de la simulación</h2>
+      <div class="controls">
+        <label>
+          Mensaje de aplicación
+          <textarea id="message">Hola servidor, solicito la página index.html</textarea>
+        </label>
+
+        <label>
+          Protocolo de aplicación
+          <select id="appProtocol">
+            <option value="HTTP">HTTP</option>
+            <option value="HTTPS">HTTPS</option>
+            <option value="DNS">DNS</option>
+            <option value="SMTP">SMTP</option>
+            <option value="FTP">FTP</option>
+          </select>
+        </label>
+
+        <label>
+          Protocolo de transporte
+          <select id="transportProtocol">
+            <option value="TCP">TCP</option>
+            <option value="UDP">UDP</option>
+          </select>
+        </label>
+
+        <label>
+          IP origen
+          <input id="srcIp" value="192.168.1.10" />
+        </label>
+
+        <label>
+          IP destino
+          <input id="dstIp" value="93.184.216.34" />
+        </label>
+
+        <label>
+          MAC origen
+          <input id="srcMac" value="AA:BB:CC:11:22:33" />
+        </label>
+
+        <label>
+          MAC destino
+          <input id="dstMac" value="00:1A:2B:3C:4D:5E" />
+        </label>
+
+        <div class="button-row">
+          <button id="startBtn">Iniciar</button>
+          <button class="secondary" id="stepBtn">Paso a paso</button>
+        </div>
+
+        <button class="secondary" id="resetBtn">Reiniciar</button>
+
+        <div>
+          <div class="mini-title">Progreso</div>
+          <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+        </div>
+
+        <div class="legend">
+          <div><strong>Cabecera:</strong> información que cada capa añade delante de los datos.</div>
+          <div><strong>Trailer/FCS:</strong> información que la capa de enlace añade al final para control de errores.</div>
+          <div><strong>Desencapsulado:</strong> el receptor retira cada cabecera en orden inverso.</div>
+          <div><strong>Tamaños:</strong> valores educativos aproximados o mínimos habituales. En redes reales pueden variar por opciones, cifrado, VLAN, MTU, fragmentación, etc.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card stage" id="stage">
+      <h2>Recorrido por las capas OSI</h2>
+      <div class="packet-flyer" id="packetFlyer">
+        <div class="packet-label" id="packetLabel">Pulsa Iniciar</div>
+        <div class="packet" id="packet"></div>
+        <div class="packet-stats" id="packetStats">
+          <span class="stat-pill">Cabeceras: 0 bits</span>
+          <span class="stat-pill">Total: 0 bits</span>
+        </div>
+      </div>
+      <div class="osi-stack" id="osiStack"></div>
+    </section>
+
+    <aside class="side">
+      <section class="card">
+        <h2>Explicación de la capa actual</h2>
+        <div class="info">
+          <h3 id="infoTitle">Preparado para comenzar</h3>
+          <p id="infoDescription">Configura el mensaje y pulsa Iniciar o Paso a paso.</p>
+          <div class="detail-grid">
+            <div class="detail">
+              <small>Unidad de datos</small>
+              <span id="infoPdu">—</span>
+            </div>
+            <div class="detail">
+              <small>Encapsulado aplicado</small>
+              <span id="infoHeader">—</span>
+            </div>
+            <div class="detail">
+              <small>Protocolo o tecnología</small>
+              <span id="infoProtocol">—</span>
+            </div>
+            <div class="detail">
+              <small>Tamaño añadido</small>
+              <span id="infoBits">—</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Registro de la simulación</h2>
+        <div class="log" id="log"></div>
+      </section>
+    </aside>
+  </main>
+
+  <script>
+    const protocolSizes = {
+      app: {
+        HTTP: 320,
+        HTTPS: 480,
+        DNS: 96,
+        SMTP: 240,
+        FTP: 224
+      },
+      transport: {
+        TCP: 160,
+        UDP: 64
+      },
+      presentation: {
+        "TLS / UTF-8 / JPEG / MP4": 160
+      },
+      session: {
+        "RPC / NetBIOS / control de sesión": 64
+      },
+      network: {
+        IPv4: 160
+      },
+      link: {
+        EthernetHeader: 112,
+        EthernetTrailer: 32
+      },
+      physical: {
+        Preamble: 64
+      }
+    };
+
+    function textToBits(text) {
+      return text.length * 8;
+    }
+
+    function formatBits(bits) {
+      if (bits >= 8000) return `${bits} bits (${(bits / 8 / 1024).toFixed(2)} KiB)`;
+      if (bits >= 800) return `${bits} bits (${(bits / 8).toFixed(0)} bytes)`;
+      return `${bits} bits`;
+    }
+
+    function currentAppHeaderBits() {
+      return protocolSizes.app[document.getElementById("appProtocol").value] || 0;
+    }
+
+    function currentTransportHeaderBits() {
+      return protocolSizes.transport[document.getElementById("transportProtocol").value] || 0;
+    }
+
+    const osiLayers = [
+      {
+        number: 7,
+        name: "Aplicación",
+        pdu: "Datos",
+        protocol: () => document.getElementById("appProtocol").value,
+        description: "La aplicación genera el mensaje del usuario. Aquí aparecen protocolos como HTTP, DNS, SMTP o FTP.",
+        header: () => `H7 ${document.getElementById("appProtocol").value}`,
+        bits: () => currentAppHeaderBits(),
+        segmentClass: "h7"
+      },
+      {
+        number: 6,
+        name: "Presentación",
+        pdu: "Datos",
+        protocol: () => "TLS / UTF-8 / JPEG / MP4",
+        description: "Traduce, comprime o cifra los datos para que puedan ser entendidos por el destino.",
+        header: () => "H6 Cifrado/Formato",
+        bits: () => protocolSizes.presentation["TLS / UTF-8 / JPEG / MP4"],
+        segmentClass: "h6"
+      },
+      {
+        number: 5,
+        name: "Sesión",
+        pdu: "Datos",
+        protocol: () => "RPC / NetBIOS / control de sesión",
+        description: "Establece, mantiene y cierra sesiones de comunicación entre origen y destino.",
+        header: () => "H5 Sesión",
+        bits: () => protocolSizes.session["RPC / NetBIOS / control de sesión"],
+        segmentClass: "h5"
+      },
+      {
+        number: 4,
+        name: "Transporte",
+        pdu: "Segmento / Datagrama",
+        protocol: () => document.getElementById("transportProtocol").value,
+        description: "Añade puertos, control de flujo y, con TCP, fiabilidad y orden de entrega.",
+        header: () => {
+          const proto = document.getElementById("transportProtocol").value;
+          return `${proto} src:49152 dst:${proto === "TCP" ? "80" : "53"}`;
+        },
+        bits: () => currentTransportHeaderBits(),
+        segmentClass: "h4"
+      },
+      {
+        number: 3,
+        name: "Red",
+        pdu: "Paquete",
+        protocol: () => "IPv4 / ICMP / routing",
+        description: "Añade direcciones IP y permite que los routers lleven el paquete hasta otra red.",
+        header: () => `IP ${document.getElementById("srcIp").value} → ${document.getElementById("dstIp").value}`,
+        bits: () => protocolSizes.network.IPv4,
+        segmentClass: "h3"
+      },
+      {
+        number: 2,
+        name: "Enlace de datos",
+        pdu: "Trama",
+        protocol: () => "Ethernet / Wi‑Fi / ARP",
+        description: "Añade direcciones MAC para el salto local y un FCS para detectar errores.",
+        header: () => `ETH ${document.getElementById("srcMac").value} → ${document.getElementById("dstMac").value}`,
+        bits: () => protocolSizes.link.EthernetHeader,
+        trailer: () => "FCS",
+        trailerBits: () => protocolSizes.link.EthernetTrailer,
+        segmentClass: "h2"
+      },
+      {
+        number: 1,
+        name: "Física",
+        pdu: "Bits",
+        protocol: () => "Señal eléctrica / óptica / radio",
+        description: "Convierte la trama en bits y señales que viajan por el medio físico.",
+        header: () => "Bits 010101...",
+        bits: () => protocolSizes.physical.Preamble,
+        segmentClass: "bits"
+      }
+    ];
+
+    const receiverLayers = [...osiLayers].reverse();
+    const route = [
+      ...osiLayers.map((layer, index) => ({ layer, index, mode: "encapsular" })),
+      ...receiverLayers.map((layer, index) => ({ layer, index: osiLayers.length - 1 - index, mode: "desencapsular" }))
+    ];
+
+    const osiStack = document.getElementById("osiStack");
+    const packet = document.getElementById("packet");
+    const packetFlyer = document.getElementById("packetFlyer");
+    const packetLabel = document.getElementById("packetLabel");
+    const log = document.getElementById("log");
+    const progressBar = document.getElementById("progressBar");
+    const startBtn = document.getElementById("startBtn");
+    const stepBtn = document.getElementById("stepBtn");
+    const resetBtn = document.getElementById("resetBtn");
+
+    let currentStep = -1;
+    let packetParts = [];
+    let playing = false;
+    let playTimer = null;
+
+    function renderLayers() {
+      osiStack.innerHTML = "";
+      osiLayers.forEach((layer) => {
+        const el = document.createElement("article");
+        el.className = "layer";
+        el.dataset.layer = layer.number;
+        el.innerHTML = `
+          <div class="layer-number">${layer.number}</div>
+          <div>
+            <h3>${layer.name}</h3>
+            <p>${layer.description}</p>
+          </div>
+          <div class="protocol">${layer.protocol()}</div>
+        `;
+        osiStack.appendChild(el);
+      });
+    }
+
+    function initPacket() {
+      packetParts = [
+        {
+          text: "Datos",
+          className: "payload",
+          bits: textToBits(document.getElementById("message").value.trim() || "Mensaje vacío"),
+          title: document.getElementById("message").value.trim() || "Mensaje vacío"
+        }
+      ];
+      renderPacket();
+    }
+
+    function renderPacket() {
+      packet.innerHTML = "";
+      packetParts.forEach((part) => {
+        const span = document.createElement("div");
+        span.className = `segment ${part.className}`;
+        span.title = part.title || part.text;
+        span.innerHTML = `${part.text}<span class="segment-size">${formatBits(part.bits || 0)}</span>`;
+        packet.appendChild(span);
+      });
+      updatePacketStats();
+    }
+
+    function updatePacketStats() {
+      const stats = document.getElementById("packetStats");
+      const totalBits = packetParts.reduce((sum, part) => sum + (part.bits || 0), 0);
+      const payloadBits = packetParts
+        .filter((part) => part.className === "payload")
+        .reduce((sum, part) => sum + (part.bits || 0), 0);
+      const controlBits = Math.max(totalBits - payloadBits, 0);
+
+      stats.innerHTML = `
+        <span class="stat-pill">Cabeceras/trailers: ${formatBits(controlBits)}</span>
+        <span class="stat-pill">Datos: ${formatBits(payloadBits)}</span>
+        <span class="stat-pill">Total: ${formatBits(totalBits)}</span>
+      `;
+    }
+
+    function movePacketToLayer(index) {
+      const layerElements = [...document.querySelectorAll(".layer")];
+      layerElements.forEach((el) => el.classList.remove("active"));
+      const target = layerElements[index];
+      if (!target) return;
+      target.classList.add("active");
+
+      const stageTop = document.getElementById("stage").getBoundingClientRect().top;
+      const targetRect = target.getBoundingClientRect();
+      const targetY = targetRect.top - stageTop + targetRect.height / 2 - 36;
+      packetFlyer.style.top = `${targetY}px`;
+    }
+
+    function addLog(layer, mode, detail) {
+      const item = document.createElement("div");
+      item.className = "log-item";
+      item.innerHTML = `<strong>Capa ${layer.number} - ${layer.name}:</strong> ${mode === "encapsular" ? "añade" : "retira"} ${detail}.`;
+      log.prepend(item);
+    }
+
+    function updateInfo(layer, mode, detail) {
+      document.getElementById("infoTitle").textContent = `Capa ${layer.number}: ${layer.name}`;
+      document.getElementById("infoDescription").textContent = mode === "encapsular"
+        ? layer.description
+        : `En recepción, esta capa interpreta su información de control y la retira para entregar los datos a la capa superior.`;
+      document.getElementById("infoPdu").textContent = layer.pdu;
+      document.getElementById("infoHeader").textContent = detail;
+      document.getElementById("infoProtocol").textContent = layer.protocol();
+      const addedBits = mode === "encapsular"
+        ? ((layer.bits ? layer.bits() : 0) + (layer.trailerBits ? layer.trailerBits() : 0))
+        : -((layer.bits ? layer.bits() : 0) + (layer.trailerBits ? layer.trailerBits() : 0));
+      document.getElementById("infoBits").textContent = `${mode === "encapsular" ? "+" : "−"}${formatBits(Math.abs(addedBits))}`;
+    }
+
+    function encapsulate(layer) {
+      if (layer.number === 1) {
+        packetParts.unshift({ text: "Bits", className: "bits", bits: layer.bits(), title: "Conversión a señales físicas y preámbulo educativo" });
+        return "señales/bits para transmisión";
+      }
+
+      const header = layer.header();
+      packetParts.unshift({ text: `H${layer.number}`, className: layer.segmentClass, bits: layer.bits ? layer.bits() : 0, title: `${header} · ${formatBits(layer.bits ? layer.bits() : 0)}` });
+
+      if (layer.trailer) {
+        const trailer = layer.trailer();
+        packetParts.push({ text: trailer, className: "trailer", bits: layer.trailerBits ? layer.trailerBits() : 0, title: `Frame Check Sequence: detección de errores · ${formatBits(layer.trailerBits ? layer.trailerBits() : 0)}` });
+        return `${header} y ${trailer}`;
+      }
+
+      return header;
+    }
+
+    function decapsulate(layer) {
+      if (layer.number === 1) {
+        const bitIndex = packetParts.findIndex((part) => part.text === "Bits");
+        if (bitIndex !== -1) packetParts.splice(bitIndex, 1);
+        return "señales físicas convertidas de nuevo en trama";
+      }
+
+      const headerText = `H${layer.number}`;
+      const headerIndex = packetParts.findIndex((part) => part.text === headerText);
+      if (headerIndex !== -1) packetParts.splice(headerIndex, 1);
+
+      if (layer.trailer) {
+        const trailerIndex = packetParts.findIndex((part) => part.text === "FCS");
+        if (trailerIndex !== -1) packetParts.splice(trailerIndex, 1);
+        return `cabecera ${headerText} y trailer FCS`;
+      }
+
+      return `cabecera ${headerText}`;
+    }
+
+    function nextStep() {
+      if (currentStep >= route.length - 1) {
+        stopAutoPlay();
+        packetLabel.textContent = "Simulación terminada: datos entregados a la aplicación receptora";
+        progressBar.style.width = "100%";
+        return;
+      }
+
+      currentStep += 1;
+      const step = route[currentStep];
+      const { layer, index, mode } = step;
+      const detail = mode === "encapsular" ? encapsulate(layer) : decapsulate(layer);
+
+      renderPacket();
+      movePacketToLayer(index);
+      updateInfo(layer, mode, detail);
+      addLog(layer, mode, detail);
+
+      const pduName = mode === "encapsular" ? "Encapsulando" : "Desencapsulando";
+      packetLabel.textContent = `${pduName}: capa ${layer.number} · ${layer.name}`;
+      progressBar.style.width = `${((currentStep + 1) / route.length) * 100}%`;
+    }
+
+    function startAutoPlay() {
+      if (playing) return;
+      playing = true;
+      startBtn.disabled = true;
+      stepBtn.disabled = true;
+      if (currentStep === -1) resetSimulation(false);
+      nextStep();
+      playTimer = setInterval(() => {
+        if (currentStep >= route.length - 1) {
+          stopAutoPlay();
+          return;
+        }
+        nextStep();
+      }, 1300);
+    }
+
+    function stopAutoPlay() {
+      playing = false;
+      startBtn.disabled = false;
+      stepBtn.disabled = false;
+      clearInterval(playTimer);
+    }
+
+    function resetSimulation(clearLog = true) {
+      stopAutoPlay();
+      currentStep = -1;
+      renderLayers();
+      initPacket();
+      packetFlyer.style.top = "28px";
+      packetLabel.textContent = "Pulsa Iniciar o Paso a paso";
+      document.querySelectorAll(".layer").forEach((el) => el.classList.remove("active"));
+      progressBar.style.width = "0%";
+      document.getElementById("infoTitle").textContent = "Preparado para comenzar";
+      document.getElementById("infoDescription").textContent = "Configura el mensaje y pulsa Iniciar o Paso a paso.";
+      document.getElementById("infoPdu").textContent = "—";
+      document.getElementById("infoHeader").textContent = "—";
+      document.getElementById("infoProtocol").textContent = "—";
+      document.getElementById("infoBits").textContent = "—";
+      if (clearLog) log.innerHTML = "";
+    }
+
+    startBtn.addEventListener("click", startAutoPlay);
+    stepBtn.addEventListener("click", () => {
+      if (currentStep === -1) resetSimulation(false);
+      nextStep();
+    });
+    resetBtn.addEventListener("click", () => resetSimulation(true));
+
+    ["appProtocol", "transportProtocol", "message", "srcIp", "dstIp", "srcMac", "dstMac"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", () => {
+        if (!playing && currentStep === -1) resetSimulation(false);
+      });
+    });
+
+    resetSimulation(true);
+  </script>
+</body>
+</html>
