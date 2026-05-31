@@ -1,0 +1,10 @@
+{
+  "categoria": "Redes",
+  "icono": "🌐",
+  "etiquetas": ["modelo OSI", "redes", "educación", "teoría"],
+  "descripcion": "Recurso educativo para explicar o estudiar el modelo OSI en redes informáticas.",
+  "demo": "",
+  "destacado": true,
+  "orden": 15,
+  "ocultar": false
+}
